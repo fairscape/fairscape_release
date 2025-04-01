@@ -17,6 +17,7 @@
 - **Tools Needed:**
   - Tool for PRIDE/Massive → RO-Crate
   - Tool to build RO-Crate from manifest files (with data from form above possibly)
+  - Read from Box build best guess crate
 
 ### 3. Create Release RO-Crate
 
@@ -70,7 +71,7 @@
 
 3. **DOI Management**
 
-   - Better DataCite Script that builds request from RO-Crate
+   - DataCite Script that builds request from RO-Crate
    - Add validation before DOI minting
 
 4. **Dataverse Integration**

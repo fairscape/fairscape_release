@@ -1,0 +1,1 @@
+python generate_datasheet.py --input /path/to/ro-crate-metadata.json
