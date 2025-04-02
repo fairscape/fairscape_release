@@ -1,0 +1,1 @@
+python datacite_doi_creator.py ./examples/rocrate1/ro-crate-metadata.json --prefix 10.80180 --username UVA.CLARKLAB --password your_password_here --repository uva.clarklab
