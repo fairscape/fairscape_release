@@ -152,7 +152,6 @@ def create_dataverse_dataset(token, dataverse_url, dataverse_collection, rocrate
         # Fall back to today's date if parsing fails
         publish_date = datetime.today().strftime("%Y-%m-%d")
     
-    print(f"Using publication date: {publish_date}")
     
     dataverse_metadata = {
         "datasetVersion": {
@@ -252,8 +251,7 @@ def create_dataverse_dataset(token, dataverse_url, dataverse_collection, rocrate
         
         if response.status_code == 201:
             result = response.json()
-            print(f"Dataset created successfully!")
-            print(f"Persistent ID: {result['data']['persistentId']}")
+            print(result['data']['persistentId'])
             return result['data']['persistentId']
         else:
             print(f"Error creating dataset: {response.status_code}")
