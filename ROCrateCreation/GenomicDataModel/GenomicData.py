@@ -229,7 +229,7 @@ class GenomicData(BaseModel):
         
         return str(config_path)
         
-    def to_rocrate(self, output_dir: str) -> str:
+    def to_rocrate(self, output_dir: str, author = "Unknown") -> str:
         """
         Convert GenomicData to an RO-Crate.
         
@@ -264,7 +264,7 @@ class GenomicData(BaseModel):
             keywords=crate_keywords,
             license="https://creativecommons.org/publicdomain/zero/1.0/",
             hasPart=[],
-            author="Bioproject Contributors",
+            author=author,
             datePublished=datetime.now().isoformat(),
             associatedPublication="",
             isPartOf=[],
@@ -309,7 +309,7 @@ class GenomicData(BaseModel):
                 "accession": accession,
                 "name": sample.title or "",
                 "taxon_id": sample.taxon_id,
-                "author": "Bioproject Contributors",
+                "author": author,
                 "description": sample.title or f"Sampple {accession}",
                 "keywords": keywords,
                 "version": "1.0",
@@ -431,10 +431,9 @@ class GenomicData(BaseModel):
                 guid=None,
                 name=title,
                 experimentType=experiment.library_strategy,
-                runBy="Bioproject Contributors", 
+                runBy=author, 
                 description=f"{title} using {instrument_model}",
                 datePerformed=datetime.now().isoformat(),
-                protocol=f"{experiment.library_strategy} protocol",
                 usedInstrument=[instrument_software_guid] if instrument_software_guid else [],
                 usedSample=used_samples,
                 generated=[],
@@ -455,7 +454,7 @@ class GenomicData(BaseModel):
             run_dataset = GenerateDataset(
                 guid=None,
                 url=None,
-                author="Bioproject Contributors",
+                author=author,
                 name=title,
                 description=f"Sequencing run {accession} from experiment {experiment_ref}",
                 keywords=["sequencing", "run", output.total_spots],
