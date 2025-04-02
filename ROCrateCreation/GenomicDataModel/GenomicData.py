@@ -334,7 +334,7 @@ class GenomicData(BaseModel):
             })
 
             if cell_line_entity:
-                sample_data["cellLineReference"] = {"@id": cell_line_entity["@id"]}
+                sample_data["cellLineReference"] = cell_line_entity["@id"]
             else:
                 for attr_name, attr_value in sample.attributes.items():
                     additional_properties.append({
@@ -344,12 +344,6 @@ class GenomicData(BaseModel):
                     })
 
             sample_data["additionalProperty"] = additional_properties
-
-            if cell_line_entity:
-                sample_data["cell_line_reference"] = {"@id": cell_line_entity["@id"]}
-                sample_data["attributes"] = {}
-            else:
-                sample_data["attributes"] = sample.attributes
                 
             sample = GenerateSample(**sample_data)
             
@@ -458,8 +452,6 @@ class GenomicData(BaseModel):
             title = output.title
             experiment_ref = output.experiment_ref
             
-            file_urls = [file.url for file in output.files if file.url]
-            
             run_dataset = GenerateDataset(
                 guid=None,
                 url=None,
@@ -477,7 +469,7 @@ class GenomicData(BaseModel):
                 usedBy=[],
                 generatedBy=[experiment_guids.get(experiment_ref, "")],
                 filepath=None,
-                contentUrl=file_urls if file_urls else None,
+                contentUrl=f"https://www.ncbi.nlm.nih.gov/sra/{accession}",
                 cratePath=output_path
             )
             
