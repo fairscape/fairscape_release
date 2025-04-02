@@ -7,17 +7,17 @@ import csv
 import yaml
 import pathlib
 
-from GenomicDataModel.models.project import Project
-from GenomicDataModel.models.sample import Samples, Sample
-from GenomicDataModel.models.experiment import Experiments, Experiment
-from GenomicDataModel.models.output import Outputs, Output, OutputFile
-from cell_line_api import get_cell_line_entity
-from bioproject_fetcher import fetch_bioproject_data
+from ROCrateCreation.GenomicDataModel.project import Project
+from ROCrateCreation.GenomicDataModel.sample import Samples, Sample
+from ROCrateCreation.GenomicDataModel.experiment import Experiments, Experiment
+from ROCrateCreation.GenomicDataModel.output import Outputs, Output, OutputFile
+from ROCrateCreation.GenomicDataModel.cell_line_api import get_cell_line_entity
+from ROCrateCreation.GenomicDataModel.bioproject_fetcher import fetch_bioproject_data
 
-from fairscape_cli.models.rocrate import ROCrate
+from fairscape_cli.models.rocrate import GenerateROCrate, AppendCrate
 from fairscape_cli.models.dataset import GenerateDataset
-from fairscape_cli.models.computation import GenerateComputation
-from fairscape_cli.models.software import GenerateSoftware
+from fairscape_cli.models.experiment import GenerateExperiment
+from fairscape_cli.models.instrument import GenerateInstrument
 from fairscape_cli.models.sample import GenerateSample
 
 class GenomicData(BaseModel):
@@ -256,39 +256,41 @@ class GenomicData(BaseModel):
         if bioproject.project_data_type:
             crate_keywords.append(bioproject.project_data_type)
         
-        rocrate = ROCrate(
+        rocrate_data = GenerateROCrate(
+            path=output_path,
+            guid="",
             name=crate_name,
             description=crate_description,
             keywords=crate_keywords,
-            path=output_path
+            license="https://creativecommons.org/publicdomain/zero/1.0/",
+            hasPart=[],
+            author="Bioproject Contributors",
+            datePublished=datetime.now().isoformat(),
+            associatedPublication="",
+            isPartOf=[],
+            version="1.0",
+            url=f"https://www.ncbi.nlm.nih.gov/bioproject/{bioproject.accession}"
         )
-        rocrate.initCrate()
         
-        metadata_path = output_path / "ro-crate-metadata.json"
         metadata_path = output_path / "ro-crate-metadata.json"
         with open(metadata_path, 'r') as f:
             crate_data = json.load(f)
-        crate_data["@graph"][1]["url"] = f"https://www.ncbi.nlm.nih.gov/bioproject/{bioproject.accession}"
-        with open(metadata_path, 'w') as f:
-            json.dump(crate_data, f, indent=2)
         
         id_mapping = {}
         cell_line_entities = {}
         
-        
-        
         sample_guids = []
-        for biosample in self.samples.items:
-            accession = biosample.accession
+        for sample in self.samples.items:
+            accession = sample.accession
             
             cell_line = None
             for attr_name in ['cell_line', 'cell line', 'cell_line_name']:
-                if attr_name in biosample.attributes:
-                    cell_line = biosample.attributes[attr_name]
+                if attr_name in sample.attributes:
+                    cell_line = sample.attributes[attr_name]
                     break
             
             cell_line_entity = None
-            keywords = ["biosample", biosample.scientific_name]
+            keywords = ["biosample", sample.scientific_name]
             #If cell line given look it up on cellasasrous
             if cell_line:
                 keywords.append(cell_line)
@@ -305,36 +307,59 @@ class GenomicData(BaseModel):
             sample_data = {
                 "guid": None,
                 "accession": accession,
-                "title": biosample.title or "",
-                "scientific_name": biosample.scientific_name,
-                "taxon_id": biosample.taxon_id,
+                "name": sample.title or "",
+                "taxon_id": sample.taxon_id,
                 "author": "Bioproject Contributors",
+                "description": sample.title or f"Sampple {accession}",
                 "keywords": keywords,
                 "version": "1.0",
-                "file_format": "",
-                "additional_metadata": {
-                    "accession": accession,
-                    "scientific_name": biosample.scientific_name,
-                    "taxon_id": biosample.taxon_id
-                }
+                "contentUrl":f"https://www.ncbi.nlm.nih.gov/biosample/{accession}",
             }
-            
-            # Add cell line reference if available else use attributes
+            additional_properties = []
+
+            additional_properties.append({
+                "@type": "PropertyValue",
+                "propertyID": "accession",
+                "value": accession
+            })
+            additional_properties.append({
+                "@type": "PropertyValue",
+                "propertyID": "scientific_name",
+                "value": sample.scientific_name
+            })
+            additional_properties.append({
+                "@type": "PropertyValue",
+                "propertyID": "taxon_id",
+                "value": sample.taxon_id
+            })
+
+            if cell_line_entity:
+                sample_data["cellLineReference"] = {"@id": cell_line_entity["@id"]}
+            else:
+                for attr_name, attr_value in sample.attributes.items():
+                    additional_properties.append({
+                        "@type": "PropertyValue",
+                        "propertyID": attr_name,
+                        "value": attr_value
+                    })
+
+            sample_data["additionalProperty"] = additional_properties
+
             if cell_line_entity:
                 sample_data["cell_line_reference"] = {"@id": cell_line_entity["@id"]}
                 sample_data["attributes"] = {}
             else:
-                sample_data["attributes"] = biosample.attributes
+                sample_data["attributes"] = sample.attributes
                 
             sample = GenerateSample(**sample_data)
             
             id_mapping[accession] = sample.guid
             sample_guids.append(sample.guid)
             
-            rocrate.registerDataset(sample)
+            AppendCrate(pathlib.Path(output_path), [sample])
         
         instrument_software_guids = {}
-        computation_objects = {}
+        experiment_objects = {}
         experiment_guids = {}
         
         for experiment in self.experiments.items:
@@ -347,60 +372,86 @@ class GenomicData(BaseModel):
             
             instrument_key = f"{platform_type}_{instrument_model}"
             if instrument_key not in instrument_software_guids:
-                instrument_software = GenerateSoftware(
+                instrument_software = GenerateInstrument(
                     guid=None,
                     name=instrument_model,
-                    author=f"{platform_type} Manufacturer",
-                    version="1.0",
+                    manufacturer=f"{platform_type}", 
+                    model=instrument_model,
                     description=f"{instrument_model} used for sequencing",
-                    keywords=[platform_type, "sequencing", "instrument"],
-                    fileFormat="unknown",
-                    url=None,
-                    dateModified=datetime.now().isoformat(),
-                    filepath=None,
-                    usedByComputation=[],
+                    serialNumber=None,
                     associatedPublication=None,
                     additionalDocumentation=None,
+                    usedByExperiment=[],  
+                    contentUrl=None, 
                     cratePath=output_path,
-                    additional_metadata={
-                        "platform_type": platform_type,
-                        "instrument_model": instrument_model
-                    }
                 )
-                rocrate.registerSoftware(instrument_software)
+                AppendCrate(pathlib.Path(output_path), [instrument_software])
                 instrument_software_guids[instrument_key] = instrument_software.guid
             
             instrument_software_guid = instrument_software_guids[instrument_key]
             
             sample_ref = experiment.sample_ref
             sample_guid = id_mapping.get(sample_ref, None)
-            used_datasets = [sample_guid] if sample_guid else []
+            used_samples = [sample_guid] if sample_guid else []
             
-            experiment_computation = GenerateComputation(
+
+            experiment_properties = []
+
+            experiment_properties.append({
+                "@type": "PropertyValue",
+                "propertyID": "accession",
+                "value": accession
+            })
+            experiment_properties.append({
+                "@type": "PropertyValue",
+                "propertyID": "library_name",
+                "value": experiment.library_name
+            })
+            experiment_properties.append({
+                "@type": "PropertyValue",
+                "propertyID": "library_strategy",
+                "value": experiment.library_strategy
+            })
+            experiment_properties.append({
+                "@type": "PropertyValue",
+                "propertyID": "library_source",
+                "value": experiment.library_source
+            })
+            experiment_properties.append({
+                "@type": "PropertyValue",
+                "propertyID": "library_selection",
+                "value": experiment.library_selection
+            })
+            experiment_properties.append({
+                "@type": "PropertyValue",
+                "propertyID": "library_layout",
+                "value": experiment.library_layout
+            })
+            experiment_properties.append({
+                "@type": "PropertyValue",
+                "propertyID": "nominal_length",
+                "value": experiment.nominal_length
+            })
+
+            experiment_instance = GenerateExperiment(
                 guid=None,
                 name=title,
-                runBy="Bioproject Contributors",
-                command=f"{experiment.library_strategy} sequencing",
-                dateCreated=datetime.now().isoformat(),
+                experimentType=experiment.library_strategy,
+                runBy="Bioproject Contributors", 
                 description=f"{title} using {instrument_model}",
-                keywords=[experiment.library_strategy, "sequencing", experiment.library_name],
-                usedSoftware=[instrument_software_guid],
-                usedDataset=used_datasets,
+                datePerformed=datetime.now().isoformat(),
+                protocol=f"{experiment.library_strategy} protocol",
+                usedInstrument=[instrument_software_guid] if instrument_software_guid else [],
+                usedSample=used_samples,
                 generated=[],
-                additional_metadata={
-                    "accession": accession,
-                    "library_name": experiment.library_name,
-                    "library_strategy": experiment.library_strategy,
-                    "library_source": experiment.library_source,
-                    "library_selection": experiment.library_selection,
-                    "library_layout": experiment.library_layout,
-                    "nominal_length": experiment.nominal_length
-                }
+                associatedPublication=None,
+                additionalDocumentation=None,
+                additionalProperty=experiment_properties 
             )
             
-            id_mapping[accession] = experiment_computation.guid
-            experiment_guids[accession] = experiment_computation.guid
-            computation_objects[accession] = experiment_computation
+            id_mapping[accession] = experiment_instance.guid
+            experiment_guids[accession] = experiment_instance.guid
+            experiment_objects[accession] = experiment_instance
         
         for output in self.outputs.items:
             accession = output.accession
@@ -420,59 +471,46 @@ class GenomicData(BaseModel):
                 version="1.0",
                 associatedPublication=None,
                 additionalDocumentation=None,
-                dataFormat="sra",
+                format="sra",
                 schema="",
                 derivedFrom=[],
                 usedBy=[],
                 generatedBy=[experiment_guids.get(experiment_ref, "")],
                 filepath=None,
                 contentUrl=file_urls if file_urls else None,
-                cratePath=output_path,
-                additional_metadata={
-                    "accession": accession,
-                    "total_spots": output.total_spots,
-                    "total_bases": output.total_bases,
-                    "nreads": output.nreads,
-                    "nspots": output.nspots,
-                    "base_composition": {
-                        "A": output.a_count,
-                        "C": output.c_count,
-                        "G": output.g_count,
-                        "T": output.t_count,
-                        "N": output.n_count
-                    }
-                }
+                cratePath=output_path
             )
             
             id_mapping[accession] = run_dataset.guid
-            rocrate.registerDataset(run_dataset)
+            AppendCrate(pathlib.Path(output_path), [run_dataset])
             
             if experiment_ref in experiment_guids:
-                experiment_computation = computation_objects.get(experiment_ref)
+                experiment_computation = experiment_objects.get(experiment_ref)
                 if experiment_computation:
                     if not experiment_computation.generated:
                         experiment_computation.generated = []
                     experiment_computation.generated.append({"@id": run_dataset.guid})
         
-        for computation in computation_objects.values():
-            rocrate.registerComputation(computation)
+        AppendCrate(pathlib.Path(output_path), list(experiment_objects.values()))
         
-        # Uncomment to add cell line automatically I'm not sure if this is a good idea.
-        # Cellasarous may pull the wrong cell line so should confirm
-        # if cell_line_entities:
-        #     with open(metadata_path, 'r') as f:
-        #         metadata = json.load(f)
+        if cell_line_entities:
+            with open(metadata_path, 'r') as f:
+                metadata = json.load(f)
             
-        #     for entity in cell_line_entities.values():
-        #         entity_id = entity["@id"]
-        #         if not any(item.get('@id') == entity_id for item in metadata.get('@graph', [])):
-        #             metadata['@graph'].append(entity)
+            for entity in cell_line_entities.values():
+                entity_id = entity["@id"]
+                if not any(item.get('@id') == entity_id for item in metadata.get('@graph', [])):
+                    metadata['@graph'].append(entity)
             
-        #     with open(metadata_path, 'w') as f:
-        #         json.dump(metadata, f, indent=2)
+            with open(metadata_path, 'w') as f:
+                json.dump(metadata, f, indent=2)
         
-        return rocrate.guid
-
+        with open(metadata_path, 'r') as f:
+            crate_data = json.load(f)
+            root_id = crate_data["@graph"][1]["@id"]
+        
+        return root_id
+    
     @classmethod
     def from_api(cls, accession: str, api_key: str = "", details_dir: str = "details") -> 'GenomicData':
         """

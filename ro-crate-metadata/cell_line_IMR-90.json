@@ -1,0 +1,32 @@
+{
+  "@id": "ark:59852/cell-line-IMR-90",
+  "@type": "BioChemEntity",
+  "name": "IMR-90 Cell Line",
+  "identifier": [
+    {
+      "@type": "PropertyValue",
+      "@value": "RRID:CVCL_0347",
+      "name": "RRID"
+    }
+  ],
+  "url": "https://www.cellosaurus.org/CVCL_0347",
+  "alternateName": [
+    "IMR 90",
+    "IMR90",
+    "Institute for Medical Research-90",
+    "I90"
+  ],
+  "organism": {
+    "@id": "ark:59852/organism-homo-sapiens",
+    "name": "Homo sapiens",
+    "identifier": [
+      {
+        "@type": "PropertyValue",
+        "name": "NCBI Taxonomy Browser",
+        "value": "NCBI:txid9606",
+        "url": "https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?mode=info&id=9606"
+      }
+    ]
+  },
+  "EVI:usedBy": []
+}
