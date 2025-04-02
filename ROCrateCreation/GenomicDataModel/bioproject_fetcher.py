@@ -5,8 +5,7 @@ import os
 import argparse
 
 def fetch_bioproject_data(bioproject_accession, api_key, details_dir="details"):
-    if not os.path.exists(details_dir):
-        os.makedirs(details_dir)
+
     
     # First fetch the BioProject data
     search_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
