@@ -55,7 +55,7 @@ def create_datacite_doi(rocrate_path, prefix, username, password, repository_id,
                 "prefix": prefix,
                 "creators": authors,
                 "titles": [{"title": title}],
-                "publisher": "Your Institution Name",  # Replace with your institution
+                "publisher": "Your Institution Name",
                 "publicationYear": datetime.now().year,
                 "types": {
                     "resourceTypeGeneral": "Dataset"
@@ -69,7 +69,6 @@ def create_datacite_doi(rocrate_path, prefix, username, password, repository_id,
                 "schemaVersion": "http://datacite.org/schema/kernel-4",
                 "subjects": [{"subject": kw} for kw in keywords],
                 "version": version,
-                "distributions": []
             }
         }
     }
@@ -90,11 +89,6 @@ def create_datacite_doi(rocrate_path, prefix, username, password, repository_id,
                 }
             }
         }
-        datacite_metadata["data"]["attributes"]["distributions"].append(distribution)
-    
-    # Remove distributions if empty
-    if not datacite_metadata["data"]["attributes"]["distributions"]:
-        del datacite_metadata["data"]["attributes"]["distributions"]
     
     # Determine if we have a license
     if 'license' in dataset:
