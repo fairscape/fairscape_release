@@ -269,7 +269,7 @@ class GenomicData(BaseModel):
             associatedPublication="",
             isPartOf=[],
             version="1.0",
-            url=f"https://www.ncbi.nlm.nih.gov/bioproject/{bioproject.accession}"
+            sameAs=f"https://www.ncbi.nlm.nih.gov/bioproject/{bioproject.accession}"
         )
         
         metadata_path = output_path / "ro-crate-metadata.json"
