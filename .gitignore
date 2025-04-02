@@ -17,3 +17,4 @@ parts/
 sdist/
 var/
 wheels/
+*.ipynb
